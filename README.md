@@ -2,7 +2,7 @@
 
 ## Screenshot
 
-![App Screenshot](https://github.com/VianneyR4/Ampersand_test/Vianney_R_App.jpg)
+![App Screenshot](https://github.com/VianneyR4/Ampersand_test/blob/master/Vianney_R_App.jpg)
 
 ## Details
 
