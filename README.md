@@ -2,7 +2,7 @@
 
 ## Screenshot
 
-![App Screenshot](./screenshot.png)
+![App Screenshot](./Vianney R. App.jpg)
 
 ## Details
 
