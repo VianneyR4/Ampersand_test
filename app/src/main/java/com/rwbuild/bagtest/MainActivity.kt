@@ -1,8 +1,10 @@
 package com.rwbuild.bagtest
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,19 +35,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.rwbuild.bagtest.Utils.Resource
+import com.rwbuild.bagtest.Utils.Status
+import com.rwbuild.bagtest.ViewModels.UserViewModel
 import com.rwbuild.bagtest.ui.theme.BagTestTheme
-
-
-// Data model for user
-data class User(
-    val id: Int,
-    val name: String,
-    val position: String,
-    val photoResId: Int // Resource ID for user photo
-)
+import androidx.compose.runtime.livedata.observeAsState
+import coil.compose.rememberImagePainter
+import com.rwbuild.bagtest.Models.User
+import com.rwbuild.bagtest.Models.UserModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
+    private val userViewModel: UserViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -97,31 +99,34 @@ class MainActivity : ComponentActivity() {
                         startDestination = "home",
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        // Home Screen with user list
                         composable("home") {
                             Surface(
                                 modifier = Modifier.fillMaxSize(),
                                 color = MaterialTheme.colorScheme.background
                             ) {
-                                UserListScreen(onUserClick = { userId ->
-                                    // Navigate to the user details screen when a user is clicked
-                                    navController.navigate("userDetails/$userId")
-                                })
+                                val userList = userViewModel.userModelLiveData.observeAsState(Resource.loading(null))
+                                LaunchedEffect(Unit) {
+                                    userViewModel.fetchUsers()
+                                }
+                                UserListScreen(
+                                    userList = userList.value,
+                                    onUserClick = { userId ->
+                                        navController.navigate("userDetails/$userId")
+                                    }
+                                )
                             }
                         }
 
-                        // Settings Screen
                         composable("settings") {
                             Text(text = "Settings Screen", modifier = Modifier.fillMaxSize())
                         }
 
-                        // User Details Screen (navigate with user ID)
                         composable(
                             route = "userDetails/{userId}",
                             arguments = listOf(navArgument("userId") { type = NavType.IntType })
                         ) { backStackEntry ->
                             val userId = backStackEntry.arguments?.getInt("userId") ?: return@composable
-                            UserDetailsScreen(navController, userId)
+                            UserDetailsScreen(navController, userId, userViewModel)
                         }
                     }
                 }
@@ -130,56 +135,49 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Sample user data
-fun getSampleUsers(): List<User> {
-    return listOf(
-        User(1, "Vianney R.", "Software Engineer", R.drawable.profile_1),
-        User(2, "Jane Smith", "Product Manager", R.drawable.profile_3),
-        User(3, "Alice Johnson", "Designer", R.drawable.profile_4),
-        User(4, "Bob Williams", "Data Scientist", R.drawable.profile_6),
-        User(5, "Vianney R.", "Software Engineer", R.drawable.profile_1),
-        User(6, "Jane Smith", "Product Manager", R.drawable.profile_3),
-        User(7, "Alice Johnson", "Designer", R.drawable.profile_4),
-        User(8, "Bob Williams", "Data Scientist", R.drawable.profile_6),
-        User(9, "Vianney R.", "Software Engineer", R.drawable.profile_1),
-        User(10, "Jane Smith", "Product Manager", R.drawable.profile_3),
-        User(11, "Alice Johnson", "Designer", R.drawable.profile_4),
-        User(12, "Bob Williams", "Data Scientist", R.drawable.profile_6),
-        User(13, "Vianney R.", "Software Engineer", R.drawable.profile_1),
-        User(14, "Jane Smith", "Product Manager", R.drawable.profile_3),
-        User(15, "Alice Johnson", "Designer", R.drawable.profile_4),
-        User(16, "Bob Williams", "Data Scientist", R.drawable.profile_6)
-    )
-}
-// Composable function to display list of users
 @Composable
-fun UserListScreen(onUserClick: (Int) -> Unit) {
-    val users = getSampleUsers()
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(10.dp, 0.dp)
-    ) {
-        items(users) { user ->
-            UserRow(user = user, onClick = { onUserClick(user.id) })
-            Spacer(modifier = Modifier.height(0.dp))
+fun UserListScreen(userList: Resource<UserModel>, onUserClick: (Int) -> Unit) {
+    when (userList.status) {
+        Status.SUCCESS -> {
+            val users = userList.data?.results ?: emptyList()
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(10.dp, 0.dp)
+            ) {
+                items(users) { user ->
+                    UserRow(user = user, onClick = { onUserClick(user.location.street.number) })
+                    Spacer(modifier = Modifier.height(0.dp))
+                }
+            }
+        }
+        Status.ERROR -> {
+            Text(text = "Error: ${userList.message}", color = MaterialTheme.colorScheme.error)
+        }
+        Status.LOADING -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        else -> {
+            Text(text = "Unexpected status", color = MaterialTheme.colorScheme.error)
         }
     }
 }
-// Composable function to display each user's info (photo, name, and position) with action button
+
+
 @Composable
-fun UserRow(user: User, onClick: () -> Unit) {
+fun UserRow(user: User, onClick: (Int) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(0.dp, 5.dp, 0.dp, 0.dp)
+            .padding(0.dp, 2.dp)
             .background(
                 color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(8.dp)
             )
             .shadow(2.dp, RoundedCornerShape(2.dp))
-            .clickable { onClick() } // Trigger the onClick when the row is clicked
+            .clickable { onClick(user.location.street.number) }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -187,27 +185,34 @@ fun UserRow(user: User, onClick: () -> Unit) {
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // User Photo as a Circle
+            val imageUrl = user.picture.large
             Image(
-                painter = painterResource(id = user.photoResId),
+                painter = rememberImagePainter(
+                    data = imageUrl,
+                    builder = {
+                        placeholder(R.drawable.profile_default)
+                        error(R.drawable.profile_default)
+                    }
+                ),
                 contentDescription = "User Photo",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(64.dp)
-                    .clip(CircleShape) // Make the image circular
+                    .clip(CircleShape)
                     .background(Color.Gray)
             )
-
             Spacer(modifier = Modifier.width(16.dp))
-
-            // User Info (Name and Position)
             Column {
-                Text(text = user.name, style = MaterialTheme.typography.bodyLarge)
-                Text(text = user.position, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = user.name.first,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = user.email,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
-
-        // Action button (e.g., a more icon)
         IconButton(onClick = { /* Perform action here */ }) {
             Icon(
                 Icons.Filled.ArrowForward,
@@ -218,24 +223,33 @@ fun UserRow(user: User, onClick: () -> Unit) {
     }
 }
 
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UserDetailsScreen(navController: NavController, userId: Int) {
-    val user = getSampleUsers().find { it.id == userId }
+fun UserDetailsScreen(navController: NavController, userId: Int, userViewModel: UserViewModel) {
+    val userListState = userViewModel.userModelLiveData.observeAsState()
 
-    Scaffold(
-    ) { innerPadding ->
+    val user = userListState.value?.data?.results?.find { it.location.street.number == userId }
+
+    Scaffold {
         if (user != null) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(it),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // User Photo as a Circle
+                val imageUrl = user.picture.large
                 Image(
-                    painter = painterResource(id = user.photoResId),
+                    painter = rememberImagePainter(
+                        data = imageUrl,
+                        builder = {
+                            placeholder(R.drawable.profile_default)
+                            error(R.drawable.profile_default)
+                        }
+                    ),
                     contentDescription = "User Photo",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -243,15 +257,38 @@ fun UserDetailsScreen(navController: NavController, userId: Int) {
                         .clip(CircleShape)
                         .background(Color.Gray)
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // User Info (Name and Position)
-                Text(text = user.name, style = MaterialTheme.typography.headlineLarge)
-                Text(text = user.position, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "${user.name.first} ${user.name.last}",
+                    style = MaterialTheme.typography.headlineLarge
+                )
+                Text(
+                    text = user.email,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = user.phone,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = user.gender,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = user.location.country,
+                    style = MaterialTheme.typography.bodyLarge
+                )
             }
         } else {
-            Text("User not found", modifier = Modifier.fillMaxSize(), style = MaterialTheme.typography.bodyLarge)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "User not found",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
         }
     }
 }
@@ -261,8 +298,8 @@ fun UserDetailsScreen(navController: NavController, userId: Int) {
 @Composable
 fun UserListPreview() {
     BagTestTheme {
-        UserListScreen(onUserClick = { userId ->
-            // Navigate to the user details screen when a user is clicked
-        })
+//        UserListScreen(onUserClick = { userId ->
+//
+//        })
     }
 }
