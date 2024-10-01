@@ -1,7 +1,12 @@
 # Ampersand_test
 
+## Screenshot
 
-During the development of the user management app, several key assumptions were made:
+![App Screenshot](./screenshot.png)
+
+## Details
+
+During the development of this app, several key assumptions were made:
 
 Assumptions:
 
