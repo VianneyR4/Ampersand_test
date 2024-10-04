@@ -10,7 +10,7 @@ During the development of this app, several key assumptions were made:
 
 Assumptions:
 
-	•	API Responses: We assumed that the external API would return user details in a predictable JSON structure, containing fields such as user ID, name, position, and photo. 
+	•	API Responses: It has an external API that returns user details in a predictable JSON structure, containing fields such as user ID, name, email, location, photo and more ... 
 	•	Proper error handling is in place to manage potential API errors, including scenarios where the API might be unreachable or return unexpected data formats. In such cases, the app gracefully displays error messages to the user instead of crashing.
 	•	Device Types: The app is designed to run primarily on Android phones and tablets. The layout and navigation have been optimized for portable screens, although additional adaptations for other form factors like Android TVs have not been included.
 	•	Navigation: It is assumed that users will access user details by selecting an item from the list, with a back button facilitating return navigation to the previous screen.
